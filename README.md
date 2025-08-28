@@ -2,16 +2,19 @@
 
 A practical demonstration of Python concurrency patterns.
 
+> **Note:**  
+> This project is designed as a **learning and practice tool** to explore Python concurrency concepts, including async/await, multiprocessing, and threading.  
+> It's intended for **self-teaching, future reference, and educational purposes**.  
+> Feel free to use it as a starting point or reference for your own projects!
+
 ## Goals
 
-- Implement appropriate use of async/await for I/O-bound operations
-- Implement multiprocessing for CPU-intensive tasks
-- Implement and use threading for blocking I/O operations
-- Implement a realistic data processing pipeline
+### ✅ Completed
 
-## TODO
+- [x] Implement appropriate use of async/await for I/O-bound operations
 
-- [ ] Implement async data fetcher
+### 🛠️ In Progress / TODO
+
 - [ ] Add multiprocessing for CPU work
 - [ ] Implement threading for file I/O
 - [ ] Create orchestration layer
