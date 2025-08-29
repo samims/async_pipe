@@ -97,6 +97,7 @@ class AsyncDataFetcher(object):
 
                 # simple backoff strategy
                 await asyncio.sleep(backoff_time)
+            return {}
 
     async def fetch_all(self, urls: List[str]) -> List[Dict[str, Any]]:
         """
@@ -115,8 +116,8 @@ class AsyncDataFetcher(object):
             # NOTE: as the doc says - 'Return a future aggregating results from the given coroutines/futures.'
             # NOTE: return_exceptions=True -> this won't break the tasks immediately in case of err
             # doc: https://docs.python.org/3/library/asyncio-task.html#asyncio.gather
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            return results
+            result_resp = await asyncio.gather(*tasks, return_exceptions=True)
+            return result_resp
 
 
 # test function simply test the AsyncDataFetcher
@@ -132,14 +133,14 @@ async def test_async_fetcher():
     ]
 
     async_data_fetcher = AsyncDataFetcher(max_retries=4)
-    results = await async_data_fetcher.fetch_all(urls)
+    result_list = await async_data_fetcher.fetch_all(urls)
 
-    successful_results = [res for res in results if "error" not in res]
+    successful_results = [r for r in results if "error" not in res]
     print("=========================")
     print("=========================")
     # process successful results
     print(f"Fetched {len(successful_results)}/{len(urls)} successful results")
-    return results
+    return result_list
 
 
 if __name__ == "__main__":

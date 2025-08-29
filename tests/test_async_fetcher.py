@@ -1,12 +1,11 @@
 import asyncio
-from aiohttp import ClientError
+
 import pytest
 
+from aiohttp import ClientError
 from aioresponses import aioresponses
 
-
-from data_pipeline.async_io import AsyncDataFetcher
-
+from src.data_pipeline.async_io import AsyncDataFetcher
 
 pytestmark = pytest.mark.asyncio
 
