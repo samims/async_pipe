@@ -8,7 +8,6 @@ the `concurrent.futures` ProcessPoolExecutor for leveraging multiple CPU cores.
 using threads or processes.
 """
 
-
 import logging
 
 from concurrent import futures
@@ -46,7 +45,6 @@ class CPUIntensiveProcessor(object):
         self.max_workers = max_workers or cpu_count()
         logger.debug(f"CPU processor initialized with {self.max_workers} workers")
 
-
     def parallel_process(
         self, data: List[Any], process_func: Callable, chunk_size: int = 100
     ) -> List[Any]:
@@ -68,7 +66,9 @@ class CPUIntensiveProcessor(object):
         # For example, if data has 1000 items and chunk_size is 100,
         # this will produce 10 chunks: data[0:100], data[100:200], ..., data[900:1000]
         chunks = [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
-        logger.info(f"Processing by {self.max_workers} workers {len(data)} items in {len(chunks)} chunks...")
+        logger.info(
+            f"Processing by {self.max_workers} workers {len(data)} items in {len(chunks)} chunks..."
+        )
 
         results = []
         # NOTE:
@@ -94,9 +94,12 @@ class CPUIntensiveProcessor(object):
                     # NOTE: Fallback: process chunk in current process aka main process
                     chunk = future_to_chunk[future]
 
-                    # we can do try catch here too, but leaving for simplicity
-                    # our focus is concurrent library
-                    results.extend(process_data_chunk(chunk, process_func))
+                    try:
+                        results.extend(process_data_chunk(chunk, process_func))
+                    except Exception as fallback_e:
+                        logger.error(f"Fallback processing also failed: {fallback_e}")
+                        # Skip this chunk if fallback also fails
+                        continue
 
         return results
 
@@ -105,7 +108,9 @@ def is_prime(n: int) -> Dict[str, Any]:
     """
     Naive CPU-intensive check to determine if a number is prime.
     Returns a dictionary with the number and the result.
-    NOTE: inefficient on purpose
+
+    NOTE: This implementation is intentionally inefficient
+    to demonstrate CPU-bound tasks suitable for  for large numbers.
     """
     if n < 2:
         return {"number": n, "is_prime": False}
@@ -117,15 +122,12 @@ def is_prime(n: int) -> Dict[str, Any]:
 
 
 # test the function
-def cpu_intensive_prime_check(processor:CPUIntensiveProcessor) -> Dict[str, Any]:
+def cpu_intensive_prime_check(processor: CPUIntensiveProcessor) -> Dict[str, Any]:
     # Simulate a complex calculation
-
 
     # Wrap numbers in dicts to match process_data_chunk interface
     # data = [{"value": n} for n in numbers]
     data = list(range(10**10, 10**10 + 5_0000))
-
-
 
     results = processor.parallel_process(data, is_prime, chunk_size=25)
 
@@ -134,6 +136,7 @@ def cpu_intensive_prime_check(processor:CPUIntensiveProcessor) -> Dict[str, Any]
 
 if __name__ == "__main__":
     from time import time
+
     # Benchmark the CPU-intensive prime checking function with varying numbers of worker processes.
     # This demonstrates how multiprocessing scales with more CPU cores.
     for workers in [1, 2, 4, cpu_count()]:
@@ -144,4 +147,6 @@ if __name__ == "__main__":
         processors = CPUIntensiveProcessor(max_workers=workers)
         result = cpu_intensive_prime_check(processors)
 
-        print(f"Processed {len(result['processed'])} numbers in {time() - start:.2f} seconds.")
+        print(
+            f"Processed {len(result['processed'])} numbers in {time() - start:.2f} seconds."
+        )
