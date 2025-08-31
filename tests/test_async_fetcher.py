@@ -15,7 +15,7 @@ def fetcher():
     return AsyncDataFetcher(max_retries=4, concurrency_limit=2, timeout_sec=2.5)
 
 
-async def test_fetch_single_success(fetcher):
+async def test_fetch_single_returns_successful_response(fetcher):
     url = "https://example.com/api/data"
 
     with aioresponses() as mock:
@@ -77,3 +77,9 @@ async def test_fetch_multiple_urls(fetcher):
         for i, url in enumerate(urls):
             assert response_list[i]["data"] == {"data": f"Response for {url}"}
             assert response_list[i]["success"] is True
+
+
+async def test_fetch_empty_url_list(fetcher):
+    """Test fetching with an empty list of URLs."""
+    response_list = await fetcher.fetch_all([])
+    assert response_list == []
