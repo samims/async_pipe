@@ -26,6 +26,7 @@ class AsyncDataFetcher(object):
         max_retries: int = 6,
         concurrency_limit: int = 5,
         timeout_sec: float = 15.5,
+        verify_ssl: bool = True,
     ):
         """
         Initialize the AsyncDataFetcher with a maximum number of retries.
@@ -34,12 +35,29 @@ class AsyncDataFetcher(object):
             max_retries (int): Number of times to retry a failed request.
             concurrency_limit (int): Maximum number of concurrent requests.
             timeout_sec (float): Timeout for each request in seconds.
+            verify_ssl (bool): Whether to verify SSL certificates.
         """
         # NOTE: semaphore to limit concurrent requests, it can be used to implement a retry mechanism
         # basically it's a counter to limit the number of concurrent requests
         self.max_retries = max_retries
         self.semaphore = asyncio.Semaphore(concurrency_limit)
         self.timeout_sec = timeout_sec  # Store timeout as instance variable
+        self.verify_ssl = verify_ssl
+
+    async def _make_request(
+        self, session: aiohttp.ClientSession, url: str
+    ) -> Dict[str, Any]:
+        """Make a single HTTP request with timeout."""
+        async with session.get(
+            url, timeout=aiohttp.ClientTimeout(total=self.timeout_sec)
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            return {
+                "success": True,
+                "url": url,
+                "data": data,
+            }
 
     async def fetch_single(
         self, session: aiohttp.ClientSession, url: str
@@ -54,26 +72,11 @@ class AsyncDataFetcher(object):
         Returns:
             Dict[str, Any]: Parsed JSON response or appropriate data.
         """
-        # using semaphore attribute to limit concurrent requests
-        # NOTE: we don't have to semaphore lock() and release() manually cause
-        # the `async with statement takes care of that
         async with self.semaphore:
             for attempt in range(1, self.max_retries + 1):
                 try:
                     logger.debug(f"Attempt {attempt} Fetching URL: {url}")
-
-                    # timeout used to prevent hanging requests, it allows how much time the request can take
-                    # before it is considered a failure
-                    async with session.get(
-                        url, timeout=aiohttp.ClientTimeout(total=self.timeout_sec)
-                    ) as response:
-                        response.raise_for_status()  # raises error for http error
-                        data = await response.json()
-                        return {
-                            "success": True,
-                            "url": url,
-                            "data": data,
-                        }
+                    return await self._make_request(session, url)
 
                 except asyncio.TimeoutError:
                     logger.warning(f"Attempt {attempt} Timeout while fetching: {url}")
@@ -85,17 +88,14 @@ class AsyncDataFetcher(object):
                     )
                     if attempt == self.max_retries:
                         return {"success": False, "url": url, "error": str(e)}
-                # fallback exception, don't judge :-D
                 except Exception as e:
-                    logger.error(f"Attempt {attempt} Error while fetching: {url} - {e}")
+                    logger.error(
+                        f"Attempt {attempt} Unexpected error while fetching: {url} - {e}"
+                    )
                     if attempt == self.max_retries:
                         return {"success": False, "url": url, "error": str(e)}
 
-                backoff_time = min(
-                    2 ** (attempt - 1), 10
-                )  # Exponential backoff, max 10 seconds
-
-                # simple backoff strategy
+                backoff_time = min(2 ** (attempt - 1), 10)
                 await asyncio.sleep(backoff_time)
             return {}
 
@@ -109,7 +109,8 @@ class AsyncDataFetcher(object):
         Returns:
             List[Dict[str, Any]]: List of parsed JSON responses or error messages.
         """
-        async with aiohttp.ClientSession() as session:
+        connector = aiohttp.TCPConnector(ssl=False if not self.verify_ssl else None)
+        async with aiohttp.ClientSession(connector=connector) as session:
             # gather all fetch tasks
             tasks = [self.fetch_single(session, url) for url in urls]
 
@@ -132,10 +133,10 @@ async def test_async_fetcher():
         # "http://localhost:9999",  # This will fail, assuming nothing is running on this port
     ]
 
-    async_data_fetcher = AsyncDataFetcher(max_retries=4)
+    async_data_fetcher = AsyncDataFetcher(max_retries=4, verify_ssl=False)
     result_list = await async_data_fetcher.fetch_all(urls)
 
-    successful_results = [r for r in results if "error" not in res]
+    successful_results = [r for r in result_list if "error" not in r]
     print("=========================")
     print("=========================")
     # process successful results
