@@ -44,6 +44,8 @@ class CPUIntensiveProcessor(object):
         Initialize the CPUIntensiveProcessor with the given number of maximum workers.
         """
         self.max_workers = max_workers or cpu_count()
+        logger.debug(f"CPU processor initialized with {self.max_workers} workers")
+
 
     def parallel_process(
         self, data: List[Any], process_func: Callable, chunk_size: int = 100
@@ -77,6 +79,7 @@ class CPUIntensiveProcessor(object):
         with futures.ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             # we are storing chunk too, to process the exception cases,
             # ex: we can rerun as we are storing the argument chunk
+            # future_to_chunk: dict[callable_future, data_list]
             future_to_chunk = {
                 executor.submit(process_data_chunk, chunk, process_func): chunk
                 for chunk in chunks
@@ -114,7 +117,7 @@ def is_prime(n: int) -> Dict[str, Any]:
 
 
 # test the function
-def test_cpu_intensive_prime_check(processor:CPUIntensiveProcessor) -> Dict[str, Any]:
+def cpu_intensive_prime_check(processor:CPUIntensiveProcessor) -> Dict[str, Any]:
     # Simulate a complex calculation
 
 
@@ -139,6 +142,6 @@ if __name__ == "__main__":
 
         # Initialize the processor with the desired number of parallel workers
         processors = CPUIntensiveProcessor(max_workers=workers)
-        result = test_cpu_intensive_prime_check(processors)
+        result = cpu_intensive_prime_check(processors)
 
         print(f"Processed {len(result['processed'])} numbers in {time() - start:.2f} seconds.")
